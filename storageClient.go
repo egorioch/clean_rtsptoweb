@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/deepch/vdk/av"
@@ -21,6 +22,9 @@ func (obj *StorageST) ClientAdd(streamID string, channelID string, mode int) (st
 	}
 	chAV := make(chan *av.Packet, 2000)
 	chRTP := make(chan *[]byte, 2000)
+	for pkt := range chRTP {
+		fmt.Println("RTP: ", pkt)
+	}
 	channelTmp, ok := streamTmp.Channels[channelID]
 	if !ok {
 		return "", nil, nil, ErrorStreamNotFound

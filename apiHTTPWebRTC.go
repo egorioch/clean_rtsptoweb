@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//HTTPAPIServerStreamWebRTC stream video over WebRTC
+// Эта функция обрабатывает запросы на передачу видеопотока по протоколу WebRTC
 func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 	requestLogger := log.WithFields(logrus.Fields{
 		"module":  "http_webrtc",
@@ -17,6 +17,7 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 		"func":    "HTTPAPIServerStreamWebRTC",
 	})
 
+	// Проверка существования потока
 	if !Storage.StreamChannelExist(c.Param("uuid"), c.Param("channel")) {
 		c.IndentedJSON(500, Message{Status: 0, Payload: ErrorStreamNotFound.Error()})
 		requestLogger.WithFields(logrus.Fields{
@@ -25,6 +26,7 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 		return
 	}
 
+	// Проверка авторизации
 	if !RemoteAuthorization("WebRTC", c.Param("uuid"), c.Param("channel"), c.Query("token"), c.ClientIP()) {
 		requestLogger.WithFields(logrus.Fields{
 			"call": "RemoteAuthorization",
@@ -41,7 +43,10 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 		}).Errorln(err.Error())
 		return
 	}
-	muxerWebRTC := webrtc.NewMuxer(webrtc.Options{ICEServers: Storage.ServerICEServers(), ICEUsername: Storage.ServerICEUsername(), ICECredential: Storage.ServerICECredential(), PortMin: Storage.ServerWebRTCPortMin(), PortMax: Storage.ServerWebRTCPortMax()})
+
+	muxerWebRTC := webrtc.NewMuxer(webrtc.Options{ICEServers: Storage.ServerICEServers(),
+		ICEUsername: Storage.ServerICEUsername(), ICECredential: Storage.ServerICECredential(),
+		PortMin: Storage.ServerWebRTCPortMin(), PortMax: Storage.ServerWebRTCPortMax()})
 	answer, err := muxerWebRTC.WriteHeader(codecs, c.PostForm("data"))
 	if err != nil {
 		c.IndentedJSON(400, Message{Status: 0, Payload: err.Error()})
@@ -58,6 +63,8 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 		}).Errorln(err.Error())
 		return
 	}
+
+	// обрабатывает входящие видеопакеты от клиента и передает их в мультиплексор WebRTC.
 	go func() {
 		cid, ch, _, err := Storage.ClientAdd(c.Param("uuid"), c.Param("channel"), WEBRTC)
 		if err != nil {
@@ -73,7 +80,7 @@ func HTTPAPIServerStreamWebRTC(c *gin.Context) {
 		for {
 			select {
 			case <-noVideo.C:
-				//				c.IndentedJSON(500, Message{Status: 0, Payload: ErrorStreamNoVideo.Error()})
+				c.IndentedJSON(500, Message{Status: 0, Payload: ErrorStreamNoVideo.Error()})
 				requestLogger.WithFields(logrus.Fields{
 					"call": "ErrorStreamNoVideo",
 				}).Errorln(ErrorStreamNoVideo.Error())
